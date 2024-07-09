@@ -16,7 +16,7 @@ device = torch.device(
 )
 
 NUMBER_OF_POSSIBLE_PAWN_MOVES_AT_7X7 = 587
-STATE_SIZE = 6 * 7 * 7
+STATE_SIZE = 6 * 7 * 7 # 294
 OUTPUT_SIZE = NUMBER_OF_POSSIBLE_PAWN_MOVES_AT_7X7
 ALL_POSSIBLE_MOVES = generate_pawn_moves()
 
@@ -42,11 +42,12 @@ optimizer = optim.Adam(policy_net.parameters(), lr=learning_rate)
 memory = deque(maxlen=memory_size)
 
 steps_done = 0
-for episode in range(200):
+for episode in range(3000):
     game = Hnefatafl()
     state = copy.deepcopy(game.get_game_state())
     total_reward = 0
 
+    print(episode)
     while not game.is_game_over():
 
         eps_threshold = eps_end + (eps_start - eps_end) * \
@@ -59,14 +60,13 @@ for episode in range(200):
 
         action = select_action(policy_net, state, eps_threshold, OUTPUT_SIZE, ALL_POSSIBLE_MOVES, game.get_all_legal_moves())
         # move = input(f"{'Escaping' if game.escapee_turn else 'Attacking'} player move (e.g. e2 e4): ")
-        # print(action)
 
         old_board = copy.deepcopy(game.board)
         old_king_pos = copy.deepcopy(game.king_position)
         old_player_turn = copy.deepcopy(game.escapee_turn)
 
         try:
-            start, end = game.parse_move(action)
+            start, end = game.parse_move(ALL_POSSIBLE_MOVES[action.item()][1])
             if game.validate_move(start, end):
                 game.make_move(start, end)
                 game.is_game_over()
@@ -86,10 +86,10 @@ for episode in range(200):
                     batch = list(zip(*transitions))
                     states, actions, rewards, next_states = batch
 
-                    state_batch = torch.FloatTensor(states)
-                    action_batch = torch.cat(actions)
-                    reward_batch = torch.FloatTensor(rewards)
-                    next_state_batch = torch.FloatTensor(next_states)
+                    state_batch = torch.FloatTensor(np.array(states)).to(device)
+                    action_batch = torch.cat(actions).to(device)
+                    reward_batch = torch.FloatTensor(np.array(rewards)).to(device)
+                    next_state_batch = torch.FloatTensor(np.array(next_states)).to(device)
 
                     current_q_values = policy_net(state_batch).gather(1, action_batch)
                     next_q_values = target_net(next_state_batch).max(1)[0].detach()
@@ -108,7 +108,9 @@ for episode in range(200):
                 print(f"Invalid move. Try again. \n")
         except Exception as e:
             print(f"Error: {e}. Try again.")
-        # game.print_board()
+    game.print_board()
 
     if episode % target_update == 0:
         target_net.load_state_dict(policy_net.state_dict())
+
+torch.save(policy_net.state_dict(), 'model_state_3000.pth')

@@ -1,5 +1,6 @@
 from constants import BOARD_CORNER_CHAR, BOARD_EMPTY_CHAR, BOARD_SIZE, MIDDLE_SQUARE
 import numpy as np
+from utils import count_pieces
 
 
 class Hnefatafl:
@@ -147,11 +148,41 @@ class Hnefatafl:
     def switch_player(self):
         self.escapee_turn = not self.escapee_turn
 
-    def is_game_over(self):
+    def is_king_captured(self):
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        capture_conditions = 0
+
         king_i, king_j = self.king_position
 
+        for di, dj in directions:
+            neighbor_i, neighbor_j = king_i + di, king_j + dj
+            if 0 <= neighbor_i < self.size and 0 <= neighbor_j < self.size:
+                if self.board[neighbor_i][neighbor_j] == 'A':
+                    capture_conditions += 1
+                elif (neighbor_i in [0, self.size - 1] or neighbor_j in [0, self.size - 1]) and \
+                        self.board[neighbor_i][neighbor_j] == BOARD_CORNER_CHAR:
+                    capture_conditions += 1
+            else:
+                return False  # Jeśli pole jest poza planszą, to król nie jest złapany
+
+        return capture_conditions >= 4
+
+    def is_game_over(self):
+        king_i, king_j = self.king_position
+        is_over = False
+
         # Check if no moves are avaliavble
-        if len(self.get_all_legal_moves()) == 0:
+        if len(self.get_all_legal_moves()) == 0 and count_pieces(self.board, 'A') == 0:
+            self.game_result = 'escaped'
+            print("Defender wins! King escaped.")
+            return True
+
+        elif len(self.get_all_legal_moves()) == 0 and self.is_king_captured():
+            self.game_result = 'captured'
+            print("Attacker wins! King captured.")
+            return True
+
+        elif len(self.get_all_legal_moves()) == 0:
             self.game_result = 'stalemate'
             print("Stalemate")
             return True
@@ -169,18 +200,21 @@ class Hnefatafl:
             neighbor_i, neighbor_j = king_i + di, king_j + dj
             if 0 <= neighbor_i < self.size and 0 <= neighbor_j < self.size:
                 if self.board[neighbor_i][neighbor_j] == BOARD_EMPTY_CHAR or self.board[neighbor_i][neighbor_j] == 'D':
-                    return False
+                    is_over = False
 
         # Check for attackers presence0
         for i in range(self.size):
             for j in range(self.size):
                 if self.board[i][j] == 'A':
-                    return False
+                    is_over = False
 
         # Else king was captured
-        self.game_result = 'captured'
-        print("Attacker wins! King captured.")
-        return True
+        if self.is_king_captured():
+            self.game_result = 'captured'
+            print("Attacker wins! King captured.")
+            return True
+
+        return is_over
 
     def play(self):
         while not self.is_game_over():

@@ -120,16 +120,16 @@ def king_moves_to_reach_corner(board, king_position, size=BOARD_SIZE):
                 # in {moves + 1} moves")
                 return moves + 1
 
-    print("King cannot reach any corner")
+    # print("King cannot reach any corner")
     return numpy.inf  # Król nie może dotrzeć do żadnego narożnika
 
 
 def get_reward(initial_board, current_board, initial_king_position, current_king_position, escapee_turn, game_result):
     # Wagi dla różnych elementów nagrody
     COUNT_WEIGHT = 1.0
-    SANDWICH_WEIGHT = 2.0
-    TRIPLE_SANDWICH_WEIGHT = 3.0
-    CORNER_WEIGHT = 2.5
+    SANDWICH_WEIGHT = 7
+    TRIPLE_SANDWICH_WEIGHT = 15.0
+    CORNER_WEIGHT = 5
     WIN_WEIGHT = 100.0
 
     reward = 0.0
@@ -151,6 +151,7 @@ def get_reward(initial_board, current_board, initial_king_position, current_king
         prev_attacker_pawns = count_pieces(initial_board, 'A')
         next_attacker_pawns = count_pieces(current_board, 'A')
         did_win = 1 if game_result == 'escaped' else 0
+        did_lose = 1 if game_result == 'captured' else 0
 
         # Wyświetl wartości diagnostyczne
         # print(f"Escapee turn: Previous attacker pawns: {prev_attacker_pawns}, Next attacker pawns: {next_attacker_pawns}")
@@ -169,15 +170,17 @@ def get_reward(initial_board, current_board, initial_king_position, current_king
             - SANDWICH_WEIGHT * (1 if not prev_sandwich and next_sandwich else 0)
             - TRIPLE_SANDWICH_WEIGHT * (1 if not prev_triple_sandwich and next_triple_sandwich else 0)
             - CORNER_WEIGHT * (1 if next_king_moves_to_corner > prev_king_moves_to_corner else 0)
+            - WIN_WEIGHT * did_lose
         )
 
         # Wyświetl nagrodę
-        print(f"Escapee turn: Reward: {reward}")
+        # print(f"Escapee turn: Reward: {reward}")
 
     else:  # Atakujący
         prev_defender_pawns = count_pieces(initial_board, 'D')
         next_defender_pawns = count_pieces(current_board, 'D')
         did_win = 1 if game_result == 'captured' else 0
+        did_lose = 1 if game_result == 'escaped' else 0
 
         # Wyświetl wartości diagnostyczne
         # print(f"Attacker turn: Previous defender pawns: {prev_defender_pawns}, Next defender pawns: {next_defender_pawns}")
@@ -196,13 +199,33 @@ def get_reward(initial_board, current_board, initial_king_position, current_king
             - SANDWICH_WEIGHT * (1 if prev_sandwich and not next_sandwich else 0)
             - TRIPLE_SANDWICH_WEIGHT * (1 if prev_triple_sandwich and not next_triple_sandwich else 0)
             - CORNER_WEIGHT * (1 if next_king_moves_to_corner < prev_king_moves_to_corner else 0)
-
+            - WIN_WEIGHT * did_lose
         )
 
         # Wyświetl nagrodę
-        print(f"Attacker turn: Reward: {reward}")
+        # print(f"Attacker turn: Reward: {reward}")
 
     return reward
     # return 0
+
+
+def is_king_captured(self, king_i, king_j):
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    capture_conditions = 0
+    BOARD_CORNER_CHAR = 'C'  # Ustaw swój rzeczywisty symbol dla narożnika
+    A = 'A'  # Symbol dla atakujących pionków
+
+    for di, dj in directions:
+        neighbor_i, neighbor_j = king_i + di, king_j + dj
+        if 0 <= neighbor_i < self.size and 0 <= neighbor_j < self.size:
+            if self.board[neighbor_i][neighbor_j] == A:
+                capture_conditions += 1
+            elif (neighbor_i in [0, self.size - 1] or neighbor_j in [0, self.size - 1]) and \
+                    self.board[neighbor_i][neighbor_j] == BOARD_CORNER_CHAR:
+                capture_conditions += 1
+        else:
+            return False  # Jeśli pole jest poza planszą, to król nie jest złapany
+
+    return capture_conditions >= 4
 
 
